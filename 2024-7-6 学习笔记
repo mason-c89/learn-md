@@ -1,0 +1,177 @@
+1. 重新配置初始化gitlab远程仓库，推送初始项目到仓库中
+
+2. 使用autofac替代.NET原生的DI
+
+   - 配置**Host**
+
+     ```c#
+     public static void Main(string[] args)
+         {
+             Host.CreateDefaultBuilder(args)
+                 .UseServiceProviderFactory(new AutofacServiceProviderFactory())
+                 .ConfigureWebHostDefaults(webBuilder =>
+                 {
+                     webBuilder.UseStartup<Startup>();
+                 })
+                 .Build()
+                 .Run();
+         }
+     ```
+
+   - 配置**Smartup**
+
+     ```c#
+     public class Startup
+     {
+         public Startup(IConfiguration configuration)
+         {
+             Configuration = configuration;
+         }
+     
+         public IConfiguration Configuration { get; }
+         
+         public ILifetimeScope AutofacContainer { get; private set; }
+     
+         public void ConfigureServices(IServiceCollection services)
+         {
+             services.AddControllers();
+             services.AddEndpointsApiExplorer();
+             services.AddSwaggerGen();
+         }
+     
+         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+         {
+             if (env.IsDevelopment())
+             {
+                 app.UseSwagger();
+                 app.UseSwaggerUI();
+             }
+     
+             app.UseHttpsRedirection();
+             app.UseRouting();
+             app.UseEndpoints(endpoints => endpoints.MapControllers());
+         }
+     
+         public void ConfigureContainer(ContainerBuilder builder)
+         {
+             builder.RegisterModule(new PractiseForMasonModule());
+         }
+     }
+     ```
+
+   - 创建**PractiseForMasonModel**
+
+     ```c#
+     public class PractiseForMasonModule : Module
+     {
+         protected override void Load(ContainerBuilder builder)
+         {
+             RegisterDependency(builder);
+             base.Load(builder);
+         }
+     
+         private void RegisterDependency(ContainerBuilder builder)
+         {
+             foreach (var type in typeof(IService).Assembly.GetTypes()
+                          .Where(t => typeof(IService).IsAssignableFrom(t) && t.IsClass))
+             {
+                 switch (type)
+                 {
+                     case var t when typeof(IScopeService).IsAssignableFrom(type):
+                         builder.RegisterType(t).AsImplementedInterfaces().InstancePerLifetimeScope();
+                         break;
+                     case var t when typeof(ISingletonService).IsAssignableFrom(type):
+                         builder.RegisterType(t).AsImplementedInterfaces().SingleInstance();
+                         break;
+                     case var t when typeof(ITransientService).IsAssignableFrom(type):
+                         builder.RegisterType(t).AsImplementedInterfaces().InstancePerDependency();
+                         break;
+                     default:
+                         builder.RegisterType(type).AsImplementedInterfaces();
+                         break;
+                 }
+             }
+         }
+     }
+     ```
+
+   - 创建IService
+
+     ```c#
+     public interface IService { }
+     
+     public interface ITransientService : IService { }
+     
+     public interface ISingletonService : IService { }
+     
+     public interface IScopeService : IService { }
+     ```
+
+     
+
+3. 了解项目基础结构并构建HelloWorld Api
+
+   - 编写Dto
+
+     ```c#
+     namespace PractiseForMason.Message.Dto;
+     
+     public class HelloWorldDto
+     {
+         public string Name { get; set; }
+     }
+     ```
+
+   - 编写Service
+
+     ```c#
+     public interface IHelloWorldService : IScopeService
+     {
+         public void HelloWorld();
+     
+         public string Hello(HelloWorldDto dto);
+     }
+     
+     public class HelloWorldService : IHelloWorldService
+     {
+         public void HelloWorld()
+         {
+             Console.WriteLine("Hello World!");
+         }
+     
+         public string Hello(HelloWorldDto dto)
+         {
+             return "Hi " + dto.Name;
+         }
+     }
+     ```
+
+   - 编写Controller
+
+     ```c#
+     [ApiController]
+     [Route("api/[controller]")]
+     public class HelloWorldController : ControllerBase
+     {
+         private readonly IHelloWorldService _helloWorldService;
+     
+         public HelloWorldController(IHelloWorldService helloWorldService)
+         {
+             _helloWorldService = helloWorldService;
+         }
+     
+         [Route("helloWorld"), HttpGet]
+         public void HelloWorld()
+         {
+             _helloWorldService.HelloWorld();
+         }
+     
+         [Route("hello"), HttpPost]
+         public string Hello([FromQuery] HelloWorldDto dto)
+         {
+             return _helloWorldService.Hello(dto);
+         }
+     }
+     ```
+
+     
