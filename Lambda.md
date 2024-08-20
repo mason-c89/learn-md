@@ -271,6 +271,38 @@ Console.WriteLine(result);
 
 
 
+# LINQ表达式
+
+## 什么是LINQ表达式
+
+- LINQ（Language Integrated Query , 即“语言集成查询”）。它的提出就是为了提供一种跨越各种数据源的统一的查询方式。LINQ使对这些数据源进行的操作变得更加简单、方便和易于理解。
+- 包含四个组件
+  - Linq to Objects：对任何类型的c#内存对象提供查询，比如数组、列表和其它集合类型。
+  - Linq to XML组件。
+  - Linq to SQL组件。
+  - Linq to DataSet组件。
+- 写linq查询的两种方式
+  - 方法语法：使用标准的方法的调用。这些方法是一组叫做标准查询运算符的方法。注意：返回标量的运算符立即执行，返回集合的在遍历时执行。
+  - 查询语法：看上去像sql语句，使用查询表达式形式书写。
+
+## 查询表达式
+
+Linq查询结果一般是延迟执行的，也就是说只是保存的是一个查询计划，相当于手写了一段SQL查询语句但还没执行。而只有当在 `foreach` 语句中迭代或直接调用其`IEnumerator.MoveNext()`方法时，才会去真的执行查询。这个特定叫**延迟执行**的查询。
+
+对数据源执行`Count`、`Max`、`Average` 和 `First` 此类查询，是立即执行的，这些类型的查询返回单个值。
+
+要强制立即执行任何查询并缓存其结果，需对查询表达式调用 [ToList](https://docs.microsoft.com/zh-cn/dotnet/api/system.linq.enumerable.tolist) 或 [ToArray](https://docs.microsoft.com/zh-cn/dotnet/api/system.linq.enumerable.toarray) 方法。
+
+```
+List<int> numQuery = (from num in numbers where (num % 2) == 0 select num).ToList();
+```
+
+如果查询表达式等号左边是（var 变量名）或（`IEnumerable<T> `变量名），则查询一直到处理枚举时才会执行；注意，如果枚举被处理多次，查询就会执行多次。
+
+如果查询表达式返回标量，等号左边是（int/string/等 变量名），查询会立即执行，并且把查询结果放在查询变量中。
+
+
+
 # 学习yesmeal
 
 ## 解析`GenerateInterfaceQueryFilter`

@@ -1,12 +1,4 @@
-# 工作内容
-
-1. 了解IS部门相关规章
-2. 安装配置Rider,SourceTree,GithubDesktop,Docker等软件
-3. 观看《公司学习List》视频
-
-
-
-# 学习内容
+# CICD
 
 - 了解 CI/CD 工作流相关概念
 
@@ -30,7 +22,7 @@
      - GitLab Releases：发布说明添加到任意Git Tag
      - Deploy Boards：查看在Kubernetes上运行的每个CI环境的当前运行状况和状态
      - Auto Deploy：将应用程序部署到Kubernetes集群中的生产环境
-  
+
 - 创建管线：在gitlab仓库根目录创建一个**.gitlab-ci.yml**文件
 
   1. Basic结构模板

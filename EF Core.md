@@ -1,5 +1,120 @@
 # EF Core
 
+1. DbContext
+
+   - 方法OnModelCreating：配置实体映射
+
+     - Fluent API配置
+
+     ```c#
+     protected override void OnModelCreating(ModelBuilder modelBuilder)
+         {
+             var allTypes = Assembly.GetExecutingAssembly().GetTypes()
+                 .Where(t => t.IsClass && typeof(IEntity).IsAssignableFrom(t))
+                 .ToList();
+     
+             foreach (var type in allTypes.Where(type => modelBuilder.Model.FindEntityType(type) == null))
+             {
+                 modelBuilder.Model.AddEntityType(type);
+             }
+         }
+     ```
+
+     
+
+     - Data Annotations配置
+
+     ```c#
+     [Table("Customers")]
+     public class Customer
+     {
+         [Key]
+         public int Id { get; set; }
+     }
+     ```
+
+   - 使用数据注解进行表字段的映射
+
+   ```c#
+   [Table("product")]
+   public class Product : IEntity
+   {
+       [Column("id")]
+       public Guid Id { get; set; }
+   
+       [Column("name")]
+       public string Name { get; set; }
+   
+       [Column("price")]
+       public double Price { get; set; }
+   }
+   ```
+
+2. IRepository.cs：封装了一系列对数据库操作的方法，相当于封装了一个mybatis
+
+   ```c#
+   public interface IRepository
+   {
+       ValueTask<TEntity?> GetByIdAsync<TEntity>(object id, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<List<TEntity>> GetAllAsync<TEntity>(CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<List<TEntity>> ToListAsync<TEntity>(Expression<Func<TEntity, bool>> predicate,
+           CancellationToken cancellationToken = default) where TEntity : class, IEntity;
+   
+       Task InsertAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task InsertAllAsync<TEntity>(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task UpdateAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task UpdateAllAsync<TEntity>(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task DeleteAsync<TEntity>(Expression<Func<TEntity, bool>> predicate,
+           CancellationToken cancellationToken = default) where TEntity : class, IEntity;
+       
+       Task DeleteAsync<TEntity>(TEntity entity, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task DeleteAllAsync<TEntity>(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<int> CountAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<TEntity?> SingleOrDefaultAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<TEntity?> FirstOrDefaultAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<bool> AnyAsync<TEntity>(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
+           where TEntity : class, IEntity;
+   
+       Task<List<T>> SqlQueryAsync<T>(string sql, params object[] parameters)
+           where T : class, IEntity;
+   
+       IQueryable<TEntity> Query<TEntity>(Expression<Func<TEntity, bool>>? predicate = null)
+           where TEntity : class, IEntity;
+   
+       IQueryable<TEntity> QueryNoTracking<TEntity>(Expression<Func<TEntity, bool>>? predicate = null)
+           where TEntity : class, IEntity;
+   
+       DatabaseFacade Database { get; }
+       Task BatchInsertAsync<TEntity>(IList<TEntity> entities) where TEntity : class, IEntity;
+       Task BatchUpdateAsync<TEntity>(IList<TEntity> entities) where TEntity : class, IEntity;
+       Task BatchDeleteAsync<TEntity>(Expression<Func<TEntity, bool>> predicate) where TEntity : class, IEntity;
+   }
+   ```
+
+
+
 - 数据库连接（MySQL）：
 
   1. 在appsettings.json编写连接语句：
@@ -837,4 +952,13 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
   - 如何解决该问题？
     - 使用`await`
+    
     - 使用 `IServiceScopeFactory` 创建 `IServiceScope` 实例，因为 `IServiceScopeFactory` 是从根容器中获取的，其创建的子容器（`IServiceScope`）不会因为请求的结束而被自动释放。
+    
+      
+
+- EF Core中的ExecuteDeleteAsync是进行批量删除的方法，且该方法执行会自动调用SaveChanges进行保存
+
+- 在使用异步方法时要确保使用了await和async关键字，如果没有则会导致执行sql失败，并且没有控制台不会抛出异常的日志。
+
+  **原因：**在 C# 中，异步方法通常返回 `Task` 或 `Task<T>`。如果在调用这些方法时没有使用 `await`，这些操作会以非阻塞的方式开始执行，但不会等待其完成。这样可能导致程序继续执行后续代码，而没有等待前面的数据库操作完成，这在某些情况下可能会导致未完成的数据库事务或未保存的更改。
