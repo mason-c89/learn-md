@@ -220,3 +220,166 @@ minikube start -p aged --kubernetes-version=v1.16.1
 ```shell
 minikube delete --all
 ```
+
+
+
+
+
+# 部署项目
+
+### 1. 创建 MySQL 部署和服务
+
+首先，你需要为 MySQL 创建一个部署和服务。可以使用以下 YAML 文件（`mysql-deployment.yaml`）：
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: your_root_password
+        - name: MYSQL_DATABASE
+          value: your_database_name
+        ports:
+        - containerPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
+```
+
+### 2. 创建 Redis 部署和服务
+
+同样地，为 Redis 创建一个部署和服务（`redis-deployment.yaml`）：
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:latest
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+```
+
+### 3. 部署你的 ASP.NET Core 应用
+
+确保你的应用能够连接到 MySQL 和 Redis。创建一个应用的部署和服务文件（`app-deployment.yaml`）：
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-app-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: your-app
+  template:
+    metadata:
+      labels:
+        app: your-app
+    spec:
+      containers:
+      - name: your-app
+        image: your-app-image:latest
+        env:
+        - name: ConnectionStrings__DefaultConnection
+          value: "Server=mysql-service;Database=your_database_name;User=root;Password=your_root_password;"
+        - name: Redis__Configuration
+          value: "redis-service:6379"
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: your-app-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: your-app
+```
+
+### 4. 应用配置
+
+使用以下命令应用配置：
+
+```shell
+kubectl apply -f mysql-deployment.yaml
+kubectl apply -f redis-deployment.yaml
+kubectl apply -f app-deployment.yaml
+```
+
+### 5. 检查部署状态
+
+可以使用以下命令检查部署状态：
+
+```shell
+kubectl get deployments
+kubectl get services
+```
+
+### 6. 访问应用
+
+如果你使用的是 LoadBalancer 类型的服务，可以通过外部 IP 访问应用。如果是 ClusterIP，可以使用 `kubectl port-forward` 命令进行访问。
+
+```bash
+kubectl port-forward svc/mysql-service 3306:3306
+```
+
+### 注意事项
+
+- 根据需要修改 MySQL 和 Redis 的配置。
+- 确保你的应用中使用的连接字符串与服务名称一致。
+- 如果需要持久化数据，考虑使用 StatefulSet 和 Persistent Volume。
